@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "UniscanSlice.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "-x 2 -y 2 -z 1 -u 2 -v 2 -o --writemtl -t C:\\datasets\\pix4d\\Test\\2_densification\\3d_mesh\\Test_texture.jpg C:\\datasets\\pix4d\\Test\\2_densification\\3d_mesh\\out C:\\datasets\\pix4d\\Test\\2_densification\\3d_mesh\\Test_simplified_3d_mesh.obj"
+    }
+  }
+}

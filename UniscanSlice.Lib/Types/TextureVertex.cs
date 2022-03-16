@@ -28,19 +28,15 @@ namespace UniscanSlice.Lib.Types
 		public void LoadFromStringArray(string[] data)
         {
             if (data.Length < MinimumDataLength)
-                throw new ArgumentException("Input array must be of minimum length " + MinimumDataLength, "data");
+                throw new ArgumentException("Input array must be of minimum length " + MinimumDataLength, nameof(data));
 
             if (!data[0].ToLower().Equals(Prefix))
-                throw new ArgumentException("Data prefix must be '" + Prefix + "'", "data");
+                throw new ArgumentException("Data prefix must be '" + Prefix + "'", nameof(data));
 
-            bool success;
-
-            double x, y;
-
-            success = double.TryParse(data[1], NumberStyles.Any, CultureInfo.InvariantCulture, out x);
+            var success = double.TryParse(data[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var x);
             if (!success) throw new ArgumentException("Could not parse X parameter as double");
 
-            success = double.TryParse(data[2], NumberStyles.Any, CultureInfo.InvariantCulture, out y);
+            success = double.TryParse(data[2], NumberStyles.Any, CultureInfo.InvariantCulture, out var y);
             if (!success) throw new ArgumentException("Could not parse Y parameter as double");
 
             X = OriginalX = x;
@@ -67,7 +63,7 @@ namespace UniscanSlice.Lib.Types
 
         public override string ToString()
         {
-            return string.Format("vt {0} {1}", X, Y);
+            return $"vt {X} {Y}";
         }
 
 		public int CloneOriginal(List<TextureVertex> textureVertexList)

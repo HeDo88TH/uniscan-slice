@@ -35,7 +35,7 @@ public class ImageTile
         {
             for (int y = 0; y < size.Height; y++)
             {
-                string outputFileName = Path.Combine(outputPath, string.Format("{0}_{1}.jpg", x, y));
+                string outputFileName = Path.Combine(outputPath, $"{x}_{y}.jpg");
 
                 Rectangle tileBounds = new Rectangle(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
                 Bitmap target = new Bitmap(tileWidth, tileHeight);

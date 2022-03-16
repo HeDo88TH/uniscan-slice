@@ -109,7 +109,7 @@ namespace UniscanSlice.Lib
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Trace.TraceInformation("Processing cube {0}", v);
-                string fileOutPath = Path.Combine(outputPath, string.Format("{0}_{1}_{2}", v.X, v.Y, v.Z));
+                string fileOutPath = Path.Combine(outputPath, $"{v.X}_{v.Y}_{v.Z}");
                 int vertexCount = ObjInstance.WriteSpecificCube(fileOutPath, v, options);
                 vertexCounts.Add(v, vertexCount);
             });                          
