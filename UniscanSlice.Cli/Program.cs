@@ -28,22 +28,17 @@ namespace UniscanSlice.Cli
                     // Check if we are processing an image or a mesh
                     if (Path.GetExtension(path).ToUpper().EndsWith("JPG"))
                     {
+                        Console.WriteLine(" -> Generating image tiles");
                         ImageTile tiler = new ImageTile(path, opt.XSize, opt.YSize);
                         tiler.GenerateTiles(opt.OutputPath);
                     }
                     else if (Path.GetExtension(path).ToUpper().EndsWith("OBJ"))
                     {
+                        Console.WriteLine(" -> Slicing OBJ");
+
                         // Generate subfolders named after input file
                         // if multiple input files are provided
-                        string outputPath;
-                        if (opt.Input.Count == 1)
-                        {
-                            outputPath = opt.OutputPath;
-                        }
-                        else
-                        {
-                            outputPath = Path.Combine(opt.OutputPath, Path.GetFileNameWithoutExtension(path));
-                        }
+                        var outputPath = opt.Input.Count == 1 ? opt.OutputPath : Path.Combine(opt.OutputPath, Path.GetFileNameWithoutExtension(path));
 
                         if (opt.ForceCubical)
                         {
@@ -98,6 +93,7 @@ namespace UniscanSlice.Cli
             }
 
             stopwatch.Stop();
+            Console.WriteLine(" ?> Elapsed " + stopwatch.Elapsed);
             Trace.TraceInformation(stopwatch.Elapsed.ToString());
         }
     }

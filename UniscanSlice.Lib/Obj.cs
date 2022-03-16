@@ -425,7 +425,7 @@ namespace UniscanSlice.Lib
             var croppedUV = TextureList[face.TextureVertexIndexList[Array.IndexOf(face.VertexIndexList, croppedVertex.Index)] - 1];
             var homeUV = TextureList[face.TextureVertexIndexList[Array.IndexOf(face.VertexIndexList, homeVertex.Index)] - 1];
             var originalUVDistance = Math.Sqrt(Math.Pow(croppedUV.X - homeUV.X, 2) + Math.Pow(croppedUV.Y - homeUV.Y, 2));
-            var newUVDistance = originalUVDistance * multiplier;
+            //var newUVDistance = originalUVDistance * multiplier;
 
             // New UV coordinate using parameterized equation of the 2d line
             double u = homeUV.X + (croppedUV.X - homeUV.X) * multiplier;
