@@ -9,21 +9,24 @@ namespace UniscanSlice.Cli
 {
     class Program
     {
-        static void Main(string[] args)
-        {          
-            Options opt;
+        private static void Main(string[] args)
+        {
+            
+#if DEBUG
+            Trace.Listeners.Add(new ConsoleTraceListener());
+#endif
 
             // Setup a timer for all operations
-            Stopwatch stopwatch = new Stopwatch();
+            var stopwatch = new Stopwatch();
             stopwatch.Start();
 
             Console.WriteLine("MESH-TILER: STARTING TILING PROCESS");
 
             try
             {
-                opt = CliParser.Parse<Options>(args);
+                var opt = CliParser.Parse<Options>(args);
 
-                foreach (string path in opt.Input)
+                foreach (var path in opt.Input)
                 {
                     // Check if we are processing an image or a mesh
                     if (Path.GetExtension(path).ToUpper().EndsWith("JPG"))
@@ -38,11 +41,13 @@ namespace UniscanSlice.Cli
 
                         // Generate subfolders named after input file
                         // if multiple input files are provided
-                        var outputPath = opt.Input.Count == 1 ? opt.OutputPath : Path.Combine(opt.OutputPath, Path.GetFileNameWithoutExtension(path));
+                        var outputPath = opt.Input.Count == 1
+                            ? opt.OutputPath
+                            : Path.Combine(opt.OutputPath, Path.GetFileNameWithoutExtension(path));
 
                         if (opt.ForceCubical)
                         {
-                            int longestGridSide = Math.Max(Math.Max(opt.XSize, opt.YSize), opt.ZSize);
+                            var longestGridSide = Math.Max(Math.Max(opt.XSize, opt.YSize), opt.ZSize);
                             opt.XSize = opt.YSize = opt.ZSize = longestGridSide;
 
                             Console.WriteLine("Due to -ForceCubical grid size is now {0},{0},{0}", longestGridSide);
@@ -52,7 +57,7 @@ namespace UniscanSlice.Cli
                         {
                             OverrideMtl = opt.MtlOverride,
                             GenerateEbo = opt.Ebo,
-                            GenerateOpenCtm =  opt.OpenCtm,
+                            GenerateOpenCtm = opt.OpenCtm,
                             Debug = opt.Debug,
                             GenerateObj = opt.Obj,
                             Texture = opt.Texture,

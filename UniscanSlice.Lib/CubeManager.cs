@@ -28,7 +28,7 @@ namespace UniscanSlice.Lib
             ObjInstance.LoadObj(options.Obj, ShowLinesLoaded, size, options);
 
             // Write out a bit of info about the object
-            Trace.TraceInformation("Loaded {0} vertices and {1} faces", ObjInstance.VertexList.Count(), ObjInstance.FaceList.Count());
+            Trace.TraceInformation("Loaded {0} vertices and {1} faces", ObjInstance.VertexList.Count, ObjInstance.FaceList.Count);
             Trace.TraceInformation("Size: X {0} Y {1} Z {2}", ObjInstance.Size.XSize, ObjInstance.Size.YSize, ObjInstance.Size.ZSize);
             Trace.TraceInformation("Memory Used: " + GC.GetTotalMemory(true) / 1024 / 1024 + "mb");
         }
