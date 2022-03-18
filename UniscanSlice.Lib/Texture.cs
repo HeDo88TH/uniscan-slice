@@ -18,8 +18,8 @@ namespace UniscanSlice.Lib
 	{
         public Obj TargetObj { get; set; }
 
-        private Image source;
-        private object sourceLock = new object();
+        private readonly Image source;
+        private readonly object sourceLock = new();
         private bool disposed = false;
 
         public Texture(Obj obj)
@@ -97,25 +97,23 @@ namespace UniscanSlice.Lib
                 }
 
                 // Write to disk
-                WriteDebugImage(output, texturePath, string.Format("transforms_{0}_{1}", tile.X, tile.Y));
+                WriteDebugImage(output, texturePath, $"transforms_{tile.X}_{tile.Y}");
             }       
 		}
 
 		// The z axis is collapsed for the purpose of texture slicing.
 		// Texture tiles correlate to a column of mesh data which is unbounded in the Z axis.
-		public RectangleTransform[] GenerateTextureTile(string outputPath, Vector2 tile, SlicingOptions options, CancellationToken cancellationToken)
+		public RectangleTransform[] GenerateTextureTile(string outputPath, Vector2 tile, SlicingOptions options)
 		{                        
 			List<Face> chunkFaceList = GetFaceListFromTextureTile(options.TextureSliceY, options.TextureSliceX, tile.X, tile.Y, TargetObj).ToList();
             
 			if (!chunkFaceList.Any())
 			{
 				Trace.TraceInformation("No faces found in tile {0}.  No texture generated.", tile);
-				return new RectangleTransform[0];
+				return Array.Empty<RectangleTransform>();
 			}
 
-            Size originalSize;
-
-            // Create a clone of the source to use independent of other threads
+			// Create a clone of the source to use independent of other threads
 		    Image clonedSource;
 		    lock (sourceLock)
 		    {
@@ -123,13 +121,13 @@ namespace UniscanSlice.Lib
 		    }
             try
             {
-                originalSize = clonedSource.Size;
+                var originalSize = clonedSource.Size;
                 Size newSize = new Size();
 
                 Trace.TraceInformation("Generating sparse texture for tile {0}", tile);
 
                 // Identify blob rectangles
-                var groupedFaces = FindConnectedFaces(chunkFaceList, cancellationToken);
+                var groupedFaces = FindConnectedFaces(chunkFaceList);
                 var uvRects = FindUVRectangles(groupedFaces);
                 Rectangle[] sourceRects = TransformUVRectToBitmapRect(uvRects, originalSize, 3);
 
@@ -138,7 +136,7 @@ namespace UniscanSlice.Lib
                 // Estimate ideal bin size
                 var totalArea = sourceRects.Sum(r => r.Height * r.Width);
                 var startingSize = NextPowerOfTwo((int)Math.Sqrt(totalArea));
-                Rectangle[] destinationRects = PackTextures(sourceRects, startingSize, startingSize, 16384, cancellationToken);
+                Rectangle[] destinationRects = PackTextures(sourceRects, startingSize, startingSize, 16384);
 
                 // Identify the cropped size of our new texture			
                 newSize.Width = destinationRects.Max<Rectangle, int>(r => r.X + r.Width);
@@ -149,7 +147,7 @@ namespace UniscanSlice.Lib
                 newSize.Height = NextPowerOfTwo(newSize.Height);
 
                 // Build the new bin packed and cropped texture
-                WriteNewTexture(outputPath, options.TextureScale, newSize, clonedSource, sourceRects, destinationRects, cancellationToken);
+                WriteNewTexture(outputPath, options.TextureScale, newSize, clonedSource, sourceRects, destinationRects);
 
                 // Write an MTL if appropriate
                 if (options.WriteMtl)
@@ -189,7 +187,7 @@ namespace UniscanSlice.Lib
             File.WriteAllText(outputPath, mtl.ToString());
         }
 
-        private static void WriteNewTexture(string outputPath, float scale, Size newSize, Image source, Rectangle[] sourceRects, Rectangle[] destinationRects, CancellationToken cancellationToken)
+        private static void WriteNewTexture(string outputPath, float scale, Size newSize, Image source, Rectangle[] sourceRects, Rectangle[] destinationRects)
 		{
 			using (Bitmap packed = new Bitmap(newSize.Width, newSize.Height, source.PixelFormat))
 			{
@@ -197,7 +195,6 @@ namespace UniscanSlice.Lib
 				{
 					for (int i = 0; i < sourceRects.Length; i++)
 					{
-                        cancellationToken.ThrowIfCancellationRequested();
 						packedGraphics.DrawImage(source, destinationRects[i], sourceRects[i], GraphicsUnit.Pixel);
 					}
 				}
@@ -309,7 +306,7 @@ namespace UniscanSlice.Lib
 			//return rects;
         }
 
-		private static List<List<Face>> FindConnectedFaces(List<Face> faces, CancellationToken cancellationToken)
+		private static List<List<Face>> FindConnectedFaces(List<Face> faces)
 		{
 			var remainingFaces = new List<Face>(faces);
 
@@ -320,15 +317,42 @@ namespace UniscanSlice.Lib
 				var newGroup = new List<Face> { remainingFaces[0] };
 				groupedFaces.Add(newGroup);
 
-				// Pull the first face off the list and work on it				
 				List<Face> matches = new List<Face> { remainingFaces[0] };
+				
+				remainingFaces.RemoveAt(0);
+
+				var found = false;
+				
+				do
+				{
+					
+					foreach (var f in remainingFaces)
+					{
+						if (FacesIntersect(f, matches))
+						{
+							newGroup.AddRange(matches);	
+							foreach (var m in matches)
+							{
+								remainingFaces.Remove(m);
+							}
+
+							matches.Add(f);
+							found = true;
+						}
+					}
+					
+				} while (found);
+
+				/*
+				// Pull the first face off the list and work on it				
+				Face[] matches = { remainingFaces[0] };
 
 				remainingFaces.RemoveAt(0);
 
 				// Intersect and move to group until no more intersections are found.
 				do
 				{
-					matches = remainingFaces.AsParallel().Where(f => FacesIntersect(f, matches)).WithCancellation(cancellationToken).ToList();
+					matches = remainingFaces.Where(f => FacesIntersect(f, matches)).ToArray();
 
 					newGroup.AddRange(matches);	
 					foreach (var f in matches)
@@ -336,27 +360,17 @@ namespace UniscanSlice.Lib
 						remainingFaces.Remove(f);
 					}
 				}
-				while (matches.Any());				
+				while (matches.Any());		
+				*/
 			}
 
 			return groupedFaces;
 		}
 
 
-		private static bool FacesIntersect(Face f, List<Face> matches)
+		private static bool FacesIntersect(Face f, IEnumerable<Face> matches)
 		{
-			foreach (var m in matches)
-			{
-                foreach (int vt in m.TextureVertexIndexList)
-                {
-                    if (f.TextureVertexIndexHash.Contains(vt))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-			return false;
+			return matches.Any(m => m.TextureVertexIndexList.Any(vt => f.TextureVertexIndexHash.Contains(vt)));
 		}
 
 		private List<Tuple<TextureVertex, TextureVertex, TextureVertex>> GetUVTriangles(List<Face> chunkFaceList)
@@ -369,7 +383,7 @@ namespace UniscanSlice.Lib
 
 		public static IEnumerable<Face> GetFaceListFromTextureTile(int gridHeight, int gridWidth, int tileX, int tileY, Obj obj)
 		{
-            return GetCubeListFromTextureTile(gridHeight, gridWidth, tileX, tileY, obj).AsParallel().SelectMany(v => obj.FaceMatrix[v.X, v.Y, v.Z]);
+            return GetCubeListFromTextureTile(gridHeight, gridWidth, tileX, tileY, obj).SelectMany(v => obj.FaceMatrix[v.X, v.Y, v.Z]);
         }
 
         public static IEnumerable<Vector3> GetCubeListFromTextureTile(int gridHeight, int gridWidth, int tileX, int tileY, Obj obj)
@@ -392,22 +406,22 @@ namespace UniscanSlice.Lib
             return new Vector2((int)Math.Floor(cubeX / (double)xRatio), (int)Math.Floor(cubeY / (double)yRatio));
         }
 
-        private Rectangle[] PackTextures(Rectangle[] source, int width, int height, int maxSize, CancellationToken cancellationToken)
+        private Rectangle[] PackTextures(Rectangle[] src, int width, int height, int maxSize)
 		{
-            Trace.TraceInformation("Bin packing {0} rectangles", source.Length);
+            Trace.TraceInformation("Bin packing {0} rectangles", src.Length);
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             if (width > maxSize || height > maxSize) return null;			
 
 			MaxRectanglesBinPack bp = new MaxRectanglesBinPack(width, height, false);
-			Rectangle[] rects = new Rectangle[source.Length];
+			Rectangle[] rects = new Rectangle[src.Length];
 
-			for (int i = 0; i < source.Length; i++)
+			for (int i = 0; i < src.Length; i++)
 			{   
-				Rectangle rect = bp.Insert(source[i].Width, source[i].Height, MaxRectanglesBinPack.FreeRectangleChoiceHeuristic.RectangleBestAreaFit, cancellationToken);
+				Rectangle rect = bp.Insert(src[i].Width, src[i].Height, MaxRectanglesBinPack.FreeRectangleChoiceHeuristic.RectangleBestAreaFit);
 				if (rect.Width == 0 || rect.Height == 0)
 				{
-					return PackTextures(source, width * (width <= height ? 2 : 1), height * (height < width ? 2 : 1), maxSize, cancellationToken);
+					return PackTextures(src, width * (width <= height ? 2 : 1), height * (height < width ? 2 : 1), maxSize);
 				}
 				rects[i] = rect;
 			}

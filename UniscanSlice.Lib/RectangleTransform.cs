@@ -26,12 +26,10 @@ namespace UniscanSlice.Lib
 
 		public bool ContainsPoint(double x, double y)
 		{
-			return (
-				Math.Round(x, PRECISION) >= Math.Round(Left, PRECISION) && 
-				Math.Round(x, PRECISION) <= Math.Round(Right, PRECISION) && 
-				Math.Round(y, PRECISION) >= Math.Round(Bottom, PRECISION) && 
-				Math.Round(y, PRECISION) <= Math.Round(Top, PRECISION)
-				);
+			return Math.Round(x, PRECISION) >= Math.Round(Left, PRECISION) && 
+			       Math.Round(x, PRECISION) <= Math.Round(Right, PRECISION) && 
+			       Math.Round(y, PRECISION) >= Math.Round(Bottom, PRECISION) && 
+			       Math.Round(y, PRECISION) <= Math.Round(Top, PRECISION);
 		}
 
 		public Rectangle ToRectangle(Size textureSize)

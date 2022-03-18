@@ -45,11 +45,13 @@ namespace UniscanSlice.Lib.BinPack
             binHeight = height;
             allowRotations = rotations;
 
-            Rectangle n = new Rectangle();
-            n.X = 0;
-            n.Y = 0;
-            n.Width = width;
-            n.Height = height;
+            Rectangle n = new Rectangle
+            {
+                X = 0,
+                Y = 0,
+                Width = width,
+                Height = height
+            };
 
             usedRectangles.Clear();
 
@@ -57,7 +59,7 @@ namespace UniscanSlice.Lib.BinPack
             freeRectangles.Add(n);
         }
 
-        public Rectangle Insert(int width, int height, FreeRectangleChoiceHeuristic method, CancellationToken cancellationToken)
+        public Rectangle Insert(int width, int height, FreeRectangleChoiceHeuristic method)
         {
             Rectangle newNode = new Rectangle();
             int score1 = 0;	// Unused in this function. We don't need to know the score after finding the position.
@@ -85,7 +87,7 @@ namespace UniscanSlice.Lib.BinPack
                 }
             }
 
-            PruneFreeList(cancellationToken);
+            PruneFreeList();
 
             usedRectangles.Add(newNode);
             return newNode;
@@ -104,7 +106,7 @@ namespace UniscanSlice.Lib.BinPack
                 }
             }
 
-            PruneFreeList(new CancellationToken());
+            PruneFreeList();
 
             usedRectangles.Add(node);
         }
@@ -448,11 +450,11 @@ namespace UniscanSlice.Lib.BinPack
             return true;
         }
 
-        void PruneFreeList(CancellationToken cancellationToken)
+        void PruneFreeList()
         {   
             SortedSet<int> rectanglesToRemove = new SortedSet<int>();
 
-            Parallel.For(0,freeRectangles.Count, new ParallelOptions() { CancellationToken = cancellationToken }, i =>
+            for (var i = 0; i < freeRectangles.Count; i++)
             {
                 for (int j = i + 1; j < freeRectangles.Count; ++j)
                 {
@@ -478,7 +480,7 @@ namespace UniscanSlice.Lib.BinPack
                         }
                     }
                 }
-            });
+            }
 
             foreach (var rectangleToRemove in rectanglesToRemove.Reverse())
             {

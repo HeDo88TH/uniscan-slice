@@ -47,12 +47,12 @@ namespace UniscanSlice.Lib
             return new Vector3D(v1.X / v2.X, v1.Y / v2.Y, v1.Z / v2.Z);
         }
 
-        public static Vector3D operator *(Vector3D v, Double d)
+        public static Vector3D operator *(Vector3D v, double d)
         {
             return new Vector3D(v.X * d, v.Y * d, v.Z * d);
         }
 
-        public static Vector3D operator /(Vector3D v, Double d)
+        public static Vector3D operator /(Vector3D v, double d)
         {
             return new Vector3D(v.X / d, v.Y / d, v.Z / d);
         }

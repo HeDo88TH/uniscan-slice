@@ -15,13 +15,11 @@ namespace UniscanSlice.Lib
         public double ZMax { get; set; }
         public double ZMin { get; set; }
 
-        public double XSize { get { return XMax - XMin; }}
-        public double YSize { get { return YMax - YMin; } }
-        public double ZSize { get { return ZMax - ZMin; } }
+        public double XSize => XMax - XMin;
+        public double YSize => YMax - YMin;
+        public double ZSize => ZMax - ZMin;
 
-        public Vector3D MaxCorner { get { return new Vector3D(XMax, YMax, ZMax); } }
-        public Vector3D MinCorner { get { return new Vector3D(XMin, YMin, ZMin); } }
-
-
+        public Vector3D MaxCorner => new(XMax, YMax, ZMax);
+        public Vector3D MinCorner => new(XMin, YMin, ZMin);
     }
 }

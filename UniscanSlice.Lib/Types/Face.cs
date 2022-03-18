@@ -22,29 +22,26 @@ namespace UniscanSlice.Lib.Types
         public void LoadFromStringArray(string[] data)
         {
             if (data.Length < MinimumDataLength)
-                throw new ArgumentException("Input array must be of minimum length " + MinimumDataLength, "data");
+                throw new ArgumentException("Input array must be of minimum length " + MinimumDataLength, nameof(data));
 
             if (!data[0].ToLower().Equals(Prefix))
-                throw new ArgumentException("Data prefix must be '" + Prefix + "'", "data");            
+                throw new ArgumentException("Data prefix must be '" + Prefix + "'", nameof(data));            
 
-            int vcount = data.Count() - 1;
+            int vcount = data.Length - 1;
             VertexIndexList = new int[vcount];
             TextureVertexIndexList = new int[vcount];
 			originalVertexIndexList = new int[vcount];
 			originalTextureVertexIndexList = new int[vcount];
 
-			bool success;
-
             for (int i = 0; i < vcount; i++)
             {
                 string[] parts = data[i + 1].Split('/');
 
-                int vindex;
-                success = int.TryParse(parts[0], out vindex);
+                var success = int.TryParse(parts[0], out var vindex);
                 if (!success) throw new ArgumentException("Could not parse parameter as int");
                 VertexIndexList[i] = vindex;
 
-                if (parts.Count() > 1)
+                if (parts.Length > 1)
                 {
                     success = int.TryParse(parts[1], out vindex);
                     if (!success) throw new ArgumentException("Could not parse parameter as int");
@@ -87,7 +84,7 @@ namespace UniscanSlice.Lib.Types
 
         public void UpdateTextureVertexIndex(int oldIndex, int newIndex, bool retain = true)
         {
-            for (int index = 0; index < TextureVertexIndexList.Count(); index++)
+            for (int index = 0; index < TextureVertexIndexList.Length; index++)
             {
                 if (originalTextureVertexIndexList[index] == oldIndex)
                 {
@@ -113,11 +110,11 @@ namespace UniscanSlice.Lib.Types
         public override string ToString()
         {
             StringBuilder b = new StringBuilder();
-            b.Append("f");
+            b.Append('f');
 
-            for(int i = 0; i < VertexIndexList.Count(); i++)
+            for(int i = 0; i < VertexIndexList.Length; i++)
             {
-                b.AppendFormat(" {0}/{1}", VertexIndexList[i], TextureVertexIndexList[i]);                
+                b.Append($" {VertexIndexList[i]}/{TextureVertexIndexList[i]}");                
             }
 
             return b.ToString();

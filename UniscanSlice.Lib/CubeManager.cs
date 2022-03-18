@@ -62,7 +62,7 @@ namespace UniscanSlice.Lib
             {
                 SpatialUtilities.EnumerateSpace(metadata.TextureSetSize, (x, y) =>
                 {
-                    var vertexCounts = GenerateCubesForTextureTileAsync(outputPath, new Vector2(x, y), options, new CancellationToken()).Result;
+                    var vertexCounts = GenerateCubesForTextureTile(outputPath, new Vector2(x, y), options);
 
                     foreach (var cube in vertexCounts.Keys)
                     {
@@ -74,7 +74,7 @@ namespace UniscanSlice.Lib
             {
                 SpatialUtilities.EnumerateSpaceParallel(metadata.TextureSetSize, (x, y) =>
                 {
-                    var vertexCounts = GenerateCubesForTextureTileAsync(outputPath, new Vector2(x, y), options, new CancellationToken()).Result;
+                    var vertexCounts = GenerateCubesForTextureTile(outputPath, new Vector2(x, y), options);
 
                     foreach (var cube in vertexCounts.Keys)
                     {
@@ -91,43 +91,42 @@ namespace UniscanSlice.Lib
             File.WriteAllText(metadataPath, metadataString);
         }
 
-        public async Task<Dictionary<Vector3, int>> GenerateCubesForTextureTileAsync(string outputPath, Vector2 textureTile, SlicingOptions options, CancellationToken cancellationToken)
+        public Dictionary<Vector3, int> GenerateCubesForTextureTile(string outputPath, Vector2 textureTile, SlicingOptions options)
         {          
             // If appropriate, generate textures and save transforms first
             if (options.Texture != null)
             {
-                await Task.Run(() => ProcessTextureTile(Path.Combine(outputPath, TextureSubDirectory), textureTile, options, cancellationToken), cancellationToken).ConfigureAwait(false);
+                ProcessTextureTile(Path.Combine(outputPath, TextureSubDirectory), textureTile, options);
             }
-
-            cancellationToken.ThrowIfCancellationRequested();
 
             Dictionary<Vector3, int> vertexCounts = new Dictionary<Vector3, int>();
            
             // Generate some cubes		                
-            var cubes = Texture.GetCubeListFromTextureTile(options.TextureSliceY, options.TextureSliceX, textureTile.X, textureTile.Y, ObjInstance).ToList();
-            cubes.ForEach(v =>
+            var cubes = Texture.GetCubeListFromTextureTile(
+                options.TextureSliceY, options.TextureSliceX, textureTile.X, textureTile.Y, ObjInstance).ToArray();
+            
+            foreach(var cube in cubes)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                Trace.TraceInformation("Processing cube {0}", v);
-                string fileOutPath = Path.Combine(outputPath, $"{v.X}_{v.Y}_{v.Z}");
-                int vertexCount = ObjInstance.WriteSpecificCube(fileOutPath, v, options);
-                vertexCounts.Add(v, vertexCount);
-            });                          
+                Trace.TraceInformation("Processing cube {0}", cube);
+                string fileOutPath = Path.Combine(outputPath, $"{cube.X}_{cube.Y}_{cube.Z}");
+                int vertexCount = ObjInstance.WriteSpecificCube(fileOutPath, cube, options);
+                vertexCounts.Add(cube, vertexCount);
+            }
 
             return vertexCounts;
         }
 
-        public void ProcessTextureTile(string outputPath, Vector2 textureTile, SlicingOptions options, CancellationToken cancellationToken)
+        public void ProcessTextureTile(string outputPath, Vector2 textureTile, SlicingOptions options)
         {
             Trace.TraceInformation("Processing texture tile {0}", textureTile);
 
-            string fileOutPath = Path.Combine(outputPath, string.Format("{0}_{1}.jpg", textureTile.X, textureTile.Y));
+            string fileOutPath = Path.Combine(outputPath, $"{textureTile.X}_{textureTile.Y}.jpg");
 
             // Generate new texture
-            var transform = options.TextureInstance.GenerateTextureTile(fileOutPath, textureTile, options, cancellationToken);
+            var transform = options.TextureInstance.GenerateTextureTile(fileOutPath, textureTile, options);
 
             // Transform associated UV's
-            ObjInstance.TransformUVsForTextureTile(options, textureTile, transform, cancellationToken);      
+            ObjInstance.TransformUVsForTextureTile(options, textureTile, transform);      
         }
 
         // Action to show incremental file loading status

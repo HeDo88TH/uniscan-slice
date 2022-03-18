@@ -13,7 +13,6 @@ namespace UniscanSlice.Lib
 {
     public class Obj
     {
-
         public List<Vertex> VertexList;
         public List<Face> FaceList;
         public List<Face>[,,] FaceMatrix;
@@ -41,7 +40,7 @@ namespace UniscanSlice.Lib
             var input = File.ReadLines(path);
 
             int linesProcessed = 0;
-                                
+
             foreach (string line in input)
             {
                 processLine(line);
@@ -59,7 +58,7 @@ namespace UniscanSlice.Lib
 
             populateMatrix(FaceList, FaceMatrix, options.ForceCubicalCubes ? CubicalSize : Size);
 
-            _verticesRequireReset = false;                    
+            _verticesRequireReset = false;
         }
 
         private void populateMatrix(List<Face> faces, List<Face>[,,] matrix, Extent size)
@@ -81,7 +80,7 @@ namespace UniscanSlice.Lib
             double zRatio = zLength / (size.ZSize);
 
             // Initialize matrix
-            SpatialUtilities.EnumerateSpace(xLength, yLength, zLength, 
+            SpatialUtilities.EnumerateSpace(xLength, yLength, zLength,
                 (x, y, z) => matrix[x, y, z] = new List<Face>());
 
             foreach (var face in faces)
@@ -89,7 +88,7 @@ namespace UniscanSlice.Lib
                 List<int> used = new List<int>();
 
                 for (int i = 0; i < 3; i++)
-                {                   
+                {
                     Vertex vertex = VertexList[face.VertexIndexList[i] - 1];
 
                     int x = (int)Math.Floor((vertex.X + xOffset) * xRatio);
@@ -112,8 +111,7 @@ namespace UniscanSlice.Lib
 
             // Crop all the cubes
             SpatialUtilities.EnumerateSpace(xLength, yLength, zLength,
-                (x, y, z) => CropCube(matrix[x,y,z], x, y, z, matrix, size));
-            
+                (x, y, z) => CropCube(matrix[x, y, z], x, y, z, matrix, size));
         }
 
 
@@ -124,36 +122,36 @@ namespace UniscanSlice.Lib
         /// </summary>
         public void TransformUVs(SlicingOptions options)
         {
-            Trace.TraceInformation("Transforming {0} UV points across {1} extents", TextureList.Count, options.UVTransforms.Keys.Count);
+            Trace.TraceInformation("Transforming {0} UV points across {1} extents", TextureList.Count,
+                options.UVTransforms.Keys.Count);
             foreach (var uvTransform in options.UVTransforms)
             {
-                TransformUVsForTextureTile(options ,uvTransform.Key, uvTransform.Value, new CancellationToken());
+                TransformUVsForTextureTile(options, uvTransform.Key, uvTransform.Value);
             }
         }
 
-        public void TransformUVsForTextureTile(SlicingOptions options, Vector2 textureTile, RectangleTransform[] uvTransforms, CancellationToken cancellationToken) 
+        public void TransformUVsForTextureTile(SlicingOptions options, Vector2 textureTile,
+            RectangleTransform[] uvTransforms)
         {
             Trace.TraceInformation("Transforming UV points for texture tile {0},{1}", textureTile.X, textureTile.Y);
 
             int newUVCount = 0, failedUVCount = 0, transformUVCount = 0;
 
-            cancellationToken.ThrowIfCancellationRequested();
             var faces = Texture.GetFaceListFromTextureTile(
-                options.TextureSliceY, 
+                options.TextureSliceY,
                 options.TextureSliceX,
                 textureTile.X,
-                textureTile.Y, 
-                this);
-            
-            var uvIndices = faces.AsParallel().SelectMany(f => f.TextureVertexIndexList).WithCancellation(cancellationToken).Distinct();
-            var uvs = uvIndices.Select(i => TextureList[i - 1]).ToList();
+                textureTile.Y,
+                this).ToArray();
+
+            var uvIndices = faces.SelectMany(f => f.TextureVertexIndexList).Distinct();
+            var uvs = uvIndices.Select(i => TextureList[i - 1]).ToArray();
 
             Trace.TraceInformation("Selected UVs");
 
             foreach (var uv in uvs)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var transforms = uvTransforms.Where(t => t.ContainsPoint(uv.OriginalX, uv.OriginalY));
+                var transforms = uvTransforms.Where(t => t.ContainsPoint(uv.OriginalX, uv.OriginalY)).ToArray();
 
                 if (transforms.Any())
                 {
@@ -167,15 +165,18 @@ namespace UniscanSlice.Lib
                             TextureList[newIndex - 1].Transform(transform);
 
                             // Update all faces using the old UV in this extent
-                            faces.AsParallel().Where(f => f.TextureVertexIndexList.Contains(uv.Index)).WithCancellation(cancellationToken).ForAll(face => face.UpdateTextureVertexIndex(uv.Index, newIndex, false));
+                            foreach (var face in faces)
+                            {
+                                if (face.TextureVertexIndexList.Contains(uv.Index))
+                                    face.UpdateTextureVertexIndex(uv.Index, newIndex, false);
+                            }
 
                             newUVCount++;
                         }
                         else
                         {
-                            uv.Transform(transform);     
+                            uv.Transform(transform);
                             transformUVCount++;
-
                         }
                     }
                 }
@@ -184,15 +185,17 @@ namespace UniscanSlice.Lib
                     failedUVCount++;
                 }
             }
-            
-            Trace.TraceInformation("UV Transform results ({3},{4}): {0} success, {1} new, {2} failed.", transformUVCount, newUVCount, failedUVCount, textureTile.X, textureTile.Y);
+
+            Trace.TraceInformation("UV Transform results ({3},{4}): {0} success, {1} new, {2} failed.",
+                transformUVCount, newUVCount, failedUVCount, textureTile.X, textureTile.Y);
 
             // Write out a marked up image file showing where lost UV's occured
             if (options.Debug)
             {
                 var notTransformedUVs = uvs.Where(u => !u.Transformed).ToArray();
                 var relevantTransforms = uvTransforms;
-                    options.TextureInstance.MarkupTextureTransforms(options.Texture, relevantTransforms, notTransformedUVs, textureTile);
+                options.TextureInstance.MarkupTextureTransforms(options.Texture, relevantTransforms, notTransformedUVs,
+                    textureTile);
             }
         }
 
@@ -219,7 +222,11 @@ namespace UniscanSlice.Lib
             // Revert all vertices in case we previously changed their indexes
             if (_verticesRequireReset)
             {
-                FaceList.AsParallel().ForAll(f => f.RevertVertices());
+                foreach (var face in FaceList)
+                {
+                    face.RevertVertices();
+                }
+
                 _verticesRequireReset = false;
             }
 
@@ -227,7 +234,7 @@ namespace UniscanSlice.Lib
             var chunkFaceList = FaceMatrix[cube.X, cube.Y, cube.Z];
 
             if (!chunkFaceList.Any())
-                return 0;            
+                return 0;
 
             Trace.TraceInformation("{0} faces", chunkFaceList.Count);
 
@@ -236,28 +243,34 @@ namespace UniscanSlice.Lib
                 WriteEboFormattedFile(eboPath, options.OverrideMtl, chunkFaceList);
             }
 
-            var tile = Texture.GetTextureCoordFromCube(options.TextureSliceY, options.TextureSliceX, cube.X, cube.Y, this);
+            var tile = Texture.GetTextureCoordFromCube(options.TextureSliceY, options.TextureSliceX, cube.X, cube.Y,
+                this);
 
             if (options.GenerateObj)
             {
                 string comment = $"Texture Tile {tile.X},{tile.Y}";
                 WriteObjFormattedFile(objPath, options.OverrideMtl, chunkFaceList, tile, options, comment);
-                chunkFaceList.AsParallel().ForAll(f => f.RevertVertices());
+
+                foreach (var face in chunkFaceList)
+                {
+                    face.RevertVertices();
+                }
             }
 
             if (options.GenerateOpenCtm)
             {
                 WriteOpenCtmFormattedFile(openCtmPath, chunkFaceList, tile);
             }
-            
+
             return chunkFaceList.Count;
         }
 
-        private void CropCube(List<Face> chunkFaceList, int cubeX, int cubeY, int cubeZ, List<Face>[,,] matrix, Extent size)
+        private void CropCube(List<Face> chunkFaceList, int cubeX, int cubeY, int cubeZ, List<Face>[,,] matrix,
+            Extent size)
         {
             var cubeHeight = size.YSize / matrix.GetLength(1);
             var cubeWidth = size.XSize / matrix.GetLength(0);
-            var cubeDepth = size.ZSize / matrix.GetLength(2);       
+            var cubeDepth = size.ZSize / matrix.GetLength(2);
 
             double yOffset = cubeHeight * cubeY;
             double xOffset = cubeWidth * cubeX;
@@ -276,17 +289,17 @@ namespace UniscanSlice.Lib
             Dictionary<Face, List<Vertex>> facesToRepair = new Dictionary<Face, List<Vertex>>();
 
             // Enumerate vertices for ones crossing bounds
-            foreach(var face in chunkFaceList)
+            foreach (var face in chunkFaceList)
             {
                 var vertices = FindOutOfBoundVertices(face, cubeExtent);
 
                 if (vertices.Any())
                 {
                     facesToRepair.Add(face, vertices);
-                }            
+                }
             }
 
-            foreach(var face in facesToRepair.Keys)
+            foreach (var face in facesToRepair.Keys)
             {
                 // Type 1 - yields two triangles - 2 of the 3 vertices are in-bounds.
                 if (facesToRepair[face].Count == 1)
@@ -295,21 +308,21 @@ namespace UniscanSlice.Lib
                     //Vertex[] newVertices = new Vertex[2];
 
                     // Find the vertices we are keeping
-                    var allVerts = face.VertexIndexList.Select(i => VertexList[i - 1]);                    
+                    var allVerts = face.VertexIndexList.Select(i => VertexList[i - 1]);
                     Vertex[] homeVertices = allVerts.Except(new List<Vertex> { croppedVertex }).ToArray();
 
                     // First triangle, use existing face
                     var intersectionA = SpatialUtilities.CheckLineBox(
-                                            cubeExtent.MinCorner,
-                                            cubeExtent.MaxCorner,
-                                            new Vector3D(croppedVertex),
-                                            new Vector3D(homeVertices[0]));
+                        cubeExtent.MinCorner,
+                        cubeExtent.MaxCorner,
+                        new Vector3D(croppedVertex),
+                        new Vector3D(homeVertices[0]));
 
                     var intersectionB = SpatialUtilities.CheckLineBox(
-                                            cubeExtent.MinCorner,
-                                            cubeExtent.MaxCorner,
-                                            new Vector3D(croppedVertex),
-                                            new Vector3D(homeVertices[1]));
+                        cubeExtent.MinCorner,
+                        cubeExtent.MaxCorner,
+                        new Vector3D(croppedVertex),
+                        new Vector3D(homeVertices[1]));
 
                     if (intersectionA != null && intersectionB != null)
                     {
@@ -329,7 +342,8 @@ namespace UniscanSlice.Lib
                         // Now update the vertices
                         // Add a new vertex and update the existing face
                         int length = VertexList.Count;
-                        var NewVertexA = new Vertex { Index = length + 1, X = intersectionA.X, Y = intersectionA.Y, Z = intersectionA.Z };
+                        var NewVertexA = new Vertex
+                            { Index = length + 1, X = intersectionA.X, Y = intersectionA.Y, Z = intersectionA.Z };
                         VertexList.Add(NewVertexA);
                         newFaceA.UpdateVertexIndex(croppedVertex.Index, length + 1, false);
 
@@ -339,7 +353,8 @@ namespace UniscanSlice.Lib
 
                         // Add another new vertex for the net-new face
                         length++;
-                        var NewVertexB = new Vertex { Index = length + 1, X = intersectionB.X, Y = intersectionB.Y, Z = intersectionB.Z };
+                        var NewVertexB = new Vertex
+                            { Index = length + 1, X = intersectionB.X, Y = intersectionB.Y, Z = intersectionB.Z };
                         VertexList.Add(NewVertexB);
 
                         // Add the net-new face
@@ -349,14 +364,13 @@ namespace UniscanSlice.Lib
                         newFaceB.UpdateVertexIndex(homeVertices[0].Index, length, false);
                         newFaceB.UpdateVertexIndex(croppedVertex.Index, length + 1, false);
                     }
-
                 }
                 // Type 2 - yields single triangle - 1 of the 3 vertices are in-bounds.
                 else if (facesToRepair[face].Count == 2)
                 {
                     Vertex[] croppedVertices = facesToRepair[face].ToArray();
                     //Vertex[] newVertices = new Vertex[2];
-                                        
+
                     // Find the vertex we are keeping
                     var allVerts = face.VertexIndexList.Select(i => VertexList[i - 1]);
                     Vertex homeVertex = allVerts.Except(croppedVertices).First();
@@ -371,10 +385,10 @@ namespace UniscanSlice.Lib
 
                         // Figure out where this line intersects the cube
                         var intersection = SpatialUtilities.CheckLineBox(
-                                                cubeExtent.MinCorner,
-                                                cubeExtent.MaxCorner,                                                
-                                                new Vector3D(croppedVertices[i]),
-                                                new Vector3D(homeVertex));
+                            cubeExtent.MinCorner,
+                            cubeExtent.MaxCorner,
+                            new Vector3D(croppedVertices[i]),
+                            new Vector3D(homeVertex));
 
                         if (intersection != null)
                         {
@@ -386,7 +400,8 @@ namespace UniscanSlice.Lib
 
                             // Add the new vertex
                             int length = VertexList.Count;
-                            VertexList.Add(new Vertex { Index = length + 1, X = intersection.X, Y = intersection.Y, Z = intersection.Z });
+                            VertexList.Add(new Vertex
+                                { Index = length + 1, X = intersection.X, Y = intersection.Y, Z = intersection.Z });
 
                             // Update the new face vertex
                             newFace.UpdateVertexIndex(croppedVertices[i].Index, length + 1, false);
@@ -398,9 +413,8 @@ namespace UniscanSlice.Lib
                         chunkFaceList.Add(newFace);
                         chunkFaceList.Remove(face);
                     }
-                }               
+                }
             }
-
         }
 
         class CalculateNewUVResult
@@ -413,18 +427,26 @@ namespace UniscanSlice.Lib
         /// Calculates and inserts a new UV between two existing ones
         /// </summary>
         /// <returns>The index of the new UV</returns>
-        private CalculateNewUVResult CalculateNewUV(Face face, Vertex croppedVertex, Vertex homeVertex, Vector3D intersection)
+        private CalculateNewUVResult CalculateNewUV(Face face, Vertex croppedVertex, Vertex homeVertex,
+            Vector3D intersection)
         {
             // Figure out the UV transform
             // First, figure out the distance of the old and new line segments in 3d space
-            double originalDistance = Math.Sqrt(Math.Pow(croppedVertex.X - homeVertex.X, 2) + Math.Pow(croppedVertex.Y - homeVertex.Y, 2) + Math.Pow(croppedVertex.Z - homeVertex.Z, 2));
-            double newDistance = Math.Sqrt(Math.Pow(intersection.X - homeVertex.X, 2) + Math.Pow(intersection.Y - homeVertex.Y, 2) + Math.Pow(intersection.Z - homeVertex.Z, 2));
+            double originalDistance = Math.Sqrt(Math.Pow(croppedVertex.X - homeVertex.X, 2) +
+                                                Math.Pow(croppedVertex.Y - homeVertex.Y, 2) +
+                                                Math.Pow(croppedVertex.Z - homeVertex.Z, 2));
+            double newDistance = Math.Sqrt(Math.Pow(intersection.X - homeVertex.X, 2) +
+                                           Math.Pow(intersection.Y - homeVertex.Y, 2) +
+                                           Math.Pow(intersection.Z - homeVertex.Z, 2));
             double multiplier = newDistance / originalDistance;
 
             // And the distances in 2d (UV) space
-            var croppedUV = TextureList[face.TextureVertexIndexList[Array.IndexOf(face.VertexIndexList, croppedVertex.Index)] - 1];
-            var homeUV = TextureList[face.TextureVertexIndexList[Array.IndexOf(face.VertexIndexList, homeVertex.Index)] - 1];
-            var originalUVDistance = Math.Sqrt(Math.Pow(croppedUV.X - homeUV.X, 2) + Math.Pow(croppedUV.Y - homeUV.Y, 2));
+            var croppedUV =
+                TextureList[face.TextureVertexIndexList[Array.IndexOf(face.VertexIndexList, croppedVertex.Index)] - 1];
+            var homeUV =
+                TextureList[face.TextureVertexIndexList[Array.IndexOf(face.VertexIndexList, homeVertex.Index)] - 1];
+            //var originalUVDistance =
+            //    Math.Sqrt(Math.Pow(croppedUV.X - homeUV.X, 2) + Math.Pow(croppedUV.Y - homeUV.Y, 2));
             //var newUVDistance = originalUVDistance * multiplier;
 
             // New UV coordinate using parameterized equation of the 2d line
@@ -433,7 +455,8 @@ namespace UniscanSlice.Lib
 
             // Add the new UV
             int length = TextureList.Count;
-            TextureList.Add(new TextureVertex { Index = length + 1, X = u, Y = v, OriginalX = u, OriginalY = v, Transformed = true });
+            TextureList.Add(new TextureVertex
+                { Index = length + 1, X = u, Y = v, OriginalX = u, OriginalY = v, Transformed = true });
 
             return new CalculateNewUVResult { OldIndex = croppedUV.Index, NewIndex = length + 1 };
         }
@@ -457,7 +480,10 @@ namespace UniscanSlice.Lib
 
         private static void CleanOldFiles(SlicingOptions options, string objPath, string eboPath, string ctmPath)
         {
-            if (!Directory.Exists(Path.GetDirectoryName(objPath))) { Directory.CreateDirectory(Path.GetDirectoryName(objPath)); }
+            if (!Directory.Exists(Path.GetDirectoryName(objPath)))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(objPath));
+            }
 
             if (options.GenerateObj)
             {
@@ -476,21 +502,17 @@ namespace UniscanSlice.Lib
             }
         }
 
-        private void WriteObjFormattedFile(string path, string mtlOverride, List<Face> chunkFaceList, Vector2 tile, SlicingOptions options, string comment = "")
+        private void WriteObjFormattedFile(string path, string mtlOverride, List<Face> chunkFaceList, Vector2 tile,
+            SlicingOptions options, string comment = "")
         {
             // Build a list of vertices indexes needed for these faces
-            List<int> requiredVertices = null;
-            List<int> requiredTextureVertices = null;
 
-            var tv = Task.Run(() => { requiredVertices = chunkFaceList.AsParallel().SelectMany(f => f.VertexIndexList).Distinct().ToList(); });
-            var ttv = Task.Run(() => { requiredTextureVertices = chunkFaceList.AsParallel().SelectMany(f => f.TextureVertexIndexList).Distinct().ToList(); });
-
-            Task.WaitAll(tv, ttv);			
+            var requiredVertices = chunkFaceList.SelectMany(f => f.VertexIndexList).Distinct().ToArray();
+            var requiredTextureVertices = chunkFaceList.SelectMany(f => f.TextureVertexIndexList).Distinct().ToArray();
 
             using (var outStream = File.OpenWrite(path))
             using (var writer = new StreamWriter(outStream))
             {
-
                 // Write some header data
                 writer.WriteLine("# Generated by Uniscan's Slice tool (legacy name: PyriteCli)");
                 if (!string.IsNullOrEmpty(comment))
@@ -512,7 +534,7 @@ namespace UniscanSlice.Lib
                 }
 
                 // Write each vertex and update faces		
-                _verticesRequireReset = true;		
+                _verticesRequireReset = true;
                 int newVertexIndex = 0;
 
                 Parallel.ForEach(requiredVertices, i =>
@@ -559,7 +581,8 @@ namespace UniscanSlice.Lib
                         // Have we written this vertex before? If so write a pointer to its index
                         int desiredVertexIndex = chunkFaceList[fi].VertexIndexList[i];
                         int desiredTextureIndex = chunkFaceList[fi].TextureVertexIndexList[i];
-                        var preexisting = chunkFaceList.Take(fi).AsParallel().Where(f => f.VertexIndexList.Contains(desiredVertexIndex));
+                        var preexisting = chunkFaceList.Take(fi)
+                            .Where(f => f.VertexIndexList.Contains(desiredVertexIndex));
 
                         if (preexisting.Any())
                         {
@@ -568,11 +591,13 @@ namespace UniscanSlice.Lib
                             {
                                 for (int ti = 0; ti < 3; ti++)
                                 {
-                                    if (f.VertexIndexList[ti] == desiredVertexIndex && f.TextureVertexIndexList[ti] == desiredTextureIndex)
+                                    if (f.VertexIndexList[ti] == desiredVertexIndex &&
+                                        f.TextureVertexIndexList[ti] == desiredTextureIndex)
                                     {
                                         return true;
                                     }
                                 }
+
                                 return false;
                             });
 
@@ -581,8 +606,8 @@ namespace UniscanSlice.Lib
                                 // The total number of vertices prior to matching face
                                 int index = (chunkFaceList.IndexOf(faceWithMatchingVertexAndUV)) * 3;
                                 int indexInFace = Enumerable.Range(0, 3).First((innerIndex) =>
-                                     chunkFaceList[index/3].VertexIndexList[innerIndex] == desiredVertexIndex &&
-                                     chunkFaceList[index/3].TextureVertexIndexList[innerIndex] == desiredTextureIndex
+                                    chunkFaceList[index / 3].VertexIndexList[innerIndex] == desiredVertexIndex &&
+                                    chunkFaceList[index / 3].TextureVertexIndexList[innerIndex] == desiredTextureIndex
                                 );
                                 // Now add the delta to index into this triangle correctly
                                 index += indexInFace;
@@ -592,7 +617,6 @@ namespace UniscanSlice.Lib
                                 writer.Write((UInt32)index);
 
                                 oldVoldUVCount++;
-
                             }
                             else
                             {
@@ -613,7 +637,6 @@ namespace UniscanSlice.Lib
                                 writer.Write((float)TextureList[desiredTextureIndex - 1].Y);
 
                                 oldVnewUVCount++;
-
                             }
                         }
                         else
@@ -643,7 +666,7 @@ namespace UniscanSlice.Lib
                     //
 
                     // Write the number of faces (triangles) 
-                    eboWriter.Write((ushort) chunkFaceList.Count);
+                    eboWriter.Write((ushort)chunkFaceList.Count);
                     ebo2Writer.Write((ushort)chunkFaceList.Count);
 
                     // Write the number of unique v,uv pairs
@@ -667,12 +690,12 @@ namespace UniscanSlice.Lib
         private void WriteOpenCtmFormattedFile(string path, List<Face> chunkFaceList, Vector2 tile)
         {
             // Build a list of vertices indexes needed for these faces
-            List<Tuple<int,int>> uniqueVertexUVPairs = null;
+            List<Tuple<int, int>> uniqueVertexUVPairs = chunkFaceList.SelectMany(f =>
+                    f.VertexIndexList.Zip(f.TextureVertexIndexList, (v, uv) => new Tuple<int, int>(v, uv))).Distinct()
+                .ToList();
 
-            var tv = Task.Run(() => { uniqueVertexUVPairs = chunkFaceList.AsParallel().SelectMany(f => f.VertexIndexList.Zip(f.TextureVertexIndexList, (v,uv) => new Tuple<int,int>(v, uv))).Distinct().ToList(); });
+            //Task.WaitAll(tv);		
 
-            Task.WaitAll(tv);		
-            
             using (var outStream = File.OpenWrite(path))
             using (var writer = new BinaryWriter(outStream))
             {
@@ -680,7 +703,7 @@ namespace UniscanSlice.Lib
                 writer.Write(Encoding.UTF8.GetBytes("OCTM"));
                 writer.Write(5); // Version
                 writer.Write(0x00574152); // Compression (RAW)
-                writer.Write(uniqueVertexUVPairs.Count);  // Vertex count
+                writer.Write(uniqueVertexUVPairs.Count); // Vertex count
                 writer.Write(chunkFaceList.Count); // Triangle count
                 writer.Write(1); // UV count
                 writer.Write(0); // attribute map count
@@ -689,12 +712,13 @@ namespace UniscanSlice.Lib
 
                 //Body
 
-                Dictionary<Tuple<int,int>,int> seenVertexUVPairs = new Dictionary<Tuple<int,int>, int>();
+                Dictionary<Tuple<int, int>, int> seenVertexUVPairs = new Dictionary<Tuple<int, int>, int>();
                 List<int> vertices = new List<int>(uniqueVertexUVPairs.Count);
                 List<int> uvs = new List<int>(uniqueVertexUVPairs.Count);
                 int nextIndex = 0;
                 // Indices
-                writer.Write(0x58444e49); // "INDX"                                                                                                                                                           
+                writer.Write(
+                    0x58444e49); // "INDX"                                                                                                                                                           
                 Parallel.ForEach(chunkFaceList, f =>
                 {
                     lock (writer)
@@ -722,9 +746,9 @@ namespace UniscanSlice.Lib
                 vertices.ForEach(vertexIndex =>
                 {
                     Vertex vertex = VertexList[vertexIndex - 1];
-                    writer.Write((float) vertex.X);
-                    writer.Write((float) vertex.Y);
-                    writer.Write((float) vertex.Z);
+                    writer.Write((float)vertex.X);
+                    writer.Write((float)vertex.Y);
+                    writer.Write((float)vertex.Z);
                 });
 
                 //Normals
@@ -760,7 +784,8 @@ namespace UniscanSlice.Lib
         /// We block on writing the line, and incrementing the index.
         /// Has no real performance impact as most of the time is spent traversing arrays.
         /// </summary>
-        object vertexWriteLock = new object();
+        readonly object vertexWriteLock = new();
+
         private int WriteVertexWithNewIndex<T>(T item, ref int index, StreamWriter writer)
         {
             lock (vertexWriteLock)
@@ -768,6 +793,7 @@ namespace UniscanSlice.Lib
                 writer.WriteLine(item);
                 index++;
             }
+
             return index;
         }
 
@@ -818,7 +844,7 @@ namespace UniscanSlice.Lib
                     var v = new Vertex();
                     v.LoadFromStringArray(parts);
                     VertexList.Add(v);
-                    v.Index = VertexList.Count();
+                    v.Index = VertexList.Count;
                     break;
                 case "f":
                     var f = new Face();
@@ -829,11 +855,9 @@ namespace UniscanSlice.Lib
                     var vt = new TextureVertex();
                     vt.LoadFromStringArray(parts);
                     TextureList.Add(vt);
-                    vt.Index = TextureList.Count();
+                    vt.Index = TextureList.Count;
                     break;
-
             }
         }
-
     }
 }

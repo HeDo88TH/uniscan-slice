@@ -23,11 +23,11 @@ namespace UniscanSlice.Lib
 
         public static void EnumerateSpace(Vector3 size, Action<int, int, int> Action)
         {
-            for (int x = 0; x < size.X; x++)
+            for (var x = 0; x < size.X; x++)
             {
-                for (int y = 0; y < size.Y; y++)
+                for (var y = 0; y < size.Y; y++)
                 {
-                    for (int z = 0; z < size.Z; z++)
+                    for (var z = 0; z < size.Z; z++)
                     {
                         Action(x, y, z);
                     }
